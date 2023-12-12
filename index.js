@@ -11,6 +11,7 @@ app.use(cors());
 app.get("/", (req, res) => {
   res.send("Welcome to job portal");
 });
+
 const VerifyJwt = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
@@ -26,9 +27,11 @@ const VerifyJwt = (req, res, next) => {
         .send({ error: true, message: "unauthorized access" });
     }
     req.decode = decode;
+    // console.log(decode)
     next();
   });
 };
+
 //  ! -------------- connect with mongodb-----------------
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2lihpnz.mongodb.net/?retryWrites=true&w=majority`;
@@ -53,7 +56,26 @@ async function run() {
     );
     const Users = client.db("Job-Portal").collection("Users");
     const CompanyProfile = client.db("Job-Portal").collection("CompanyProfile");
-
+    const Jobs = client.db("Job-Portal").collection("Jobs");
+    // ! verify Candidate
+    const VerifyCandidate = async (req, res, next) => {
+      const email = req.decode.email;
+     
+      const query = { email: email };
+      const findUser = await Users.findOne(query);
+      const Candidate = findUser.role === "Candidate";
+      if (!Candidate) {
+        return res.status(401).send("forbidden access");
+      }
+      next();
+    };
+    // ! get user
+    app.get("/getUser/:email", VerifyJwt, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await Users.findOne(query);
+      res.send(result);
+    });
     // ! Post User Into db
     app.post("/postUser", async (req, res) => {
       const data = await req.body;
@@ -61,13 +83,18 @@ async function run() {
       res.send(result);
     });
     // ! Post  Company profile data
-    app.post("/postCompanyData", async (req, res) => {
+    app.post("/postCompanyData", VerifyJwt,VerifyCandidate, async (req, res) => {
       const data = req.body;
       const result = await CompanyProfile.insertOne(data);
       res.send(result);
     });
+    app.post('/postJob',VerifyJwt,VerifyCandidate,async(req,res)=>{
+      const data=req.body 
+      const result=await Jobs.insertOne(data)
+      res.send(result)
+    })
     // ! get company profile
-    app.get("/getCompany/:email",VerifyJwt, async (req, res) => {
+    app.get("/getCompany/:email", VerifyJwt,VerifyCandidate,VerifyCandidate, async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const result = await CompanyProfile.findOne(query);
@@ -76,7 +103,6 @@ async function run() {
     // ! create jwt token
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-
       const token = jwt.sign(user, process.env.JWT, { expiresIn: "1d" });
       res.send({ token });
     });
