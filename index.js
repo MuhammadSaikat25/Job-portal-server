@@ -57,6 +57,7 @@ async function run() {
     const Users = client.db("Job-Portal").collection("Users");
     const CompanyProfile = client.db("Job-Portal").collection("CompanyProfile");
     const Jobs = client.db("Job-Portal").collection("Jobs");
+    const EmployerProfile = client.db("Job-Portal").collection("EmployerProfile");
     // ! verify Candidate
     const VerifyCandidate = async (req, res, next) => {
       const email = req.decode.email;
@@ -88,9 +89,16 @@ async function run() {
       const result = await CompanyProfile.insertOne(data);
       res.send(result);
     });
+    // ! post new job
     app.post('/postJob',VerifyJwt,VerifyCandidate,async(req,res)=>{
       const data=req.body 
       const result=await Jobs.insertOne(data)
+      res.send(result)
+    })
+    // ! post Employer Profile
+    app.post(`/PostEmployerProfile`,VerifyJwt,async(req,res)=>{
+      const data=req.body
+      const result=await EmployerProfile.insertOne(data)
       res.send(result)
     })
     // ! get company profile
