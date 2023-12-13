@@ -57,14 +57,17 @@ async function run() {
     const Users = client.db("Job-Portal").collection("Users");
     const CompanyProfile = client.db("Job-Portal").collection("CompanyProfile");
     const Jobs = client.db("Job-Portal").collection("Jobs");
-    const EmployerProfile = client.db("Job-Portal").collection("EmployerProfile");
-    // ! verify Candidate
-    const VerifyCandidate = async (req, res, next) => {
+    const markJob = client.db("Job-Portal").collection("markJob");
+    const CandidateProfile = client
+      .db("Job-Portal")
+      .collection("CandidateProfile");
+    // ! verify Employer
+    const VerifyEmployer = async (req, res, next) => {
       const email = req.decode.email;
-     
+
       const query = { email: email };
       const findUser = await Users.findOne(query);
-      const Candidate = findUser.role === "Candidate";
+      const Candidate = findUser.role === "Employer";
       if (!Candidate) {
         return res.status(401).send("forbidden access");
       }
@@ -84,28 +87,48 @@ async function run() {
       res.send(result);
     });
     // ! Post  Company profile data
-    app.post("/postCompanyData", VerifyJwt,VerifyCandidate, async (req, res) => {
+    app.post(
+      "/postCompanyData",
+      VerifyJwt,
+      VerifyEmployer,
+      async (req, res) => {
+        const data = req.body;
+        const result = await CompanyProfile.insertOne(data);
+        res.send(result);
+      }
+    );
+    // ! post new job
+    app.post("/postJob", VerifyJwt, VerifyEmployer, async (req, res) => {
       const data = req.body;
-      const result = await CompanyProfile.insertOne(data);
+      const result = await Jobs.insertOne(data);
       res.send(result);
     });
-    // ! post new job
-    app.post('/postJob',VerifyJwt,VerifyCandidate,async(req,res)=>{
+    app.post('/markJob',async(req,res)=>{
       const data=req.body 
-      const result=await Jobs.insertOne(data)
+      const result=await markJob.insertOne(data) 
       res.send(result)
     })
     // ! post Employer Profile
-    app.post(`/PostEmployerProfile`,VerifyJwt,async(req,res)=>{
-      const data=req.body
-      const result=await EmployerProfile.insertOne(data)
-      res.send(result)
-    })
+    app.post(`/PostCandidateProfile`, VerifyJwt, async (req, res) => {
+      const data = req.body;
+      const result = await CandidateProfile.insertOne(data);
+      res.send(result);
+    });
     // ! get company profile
-    app.get("/getCompany/:email", VerifyJwt,VerifyCandidate,VerifyCandidate, async (req, res) => {
-      const email = req.params.email;
-      const query = { email };
-      const result = await CompanyProfile.findOne(query);
+    app.get(
+      "/getCompany/:email",
+      VerifyJwt,
+      VerifyEmployer,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { email };
+        const result = await CompanyProfile.findOne(query);
+        res.send(result);
+      }
+    );
+    // ! get all jobs
+    app.get(`/allJobs`, async (req, res) => {
+      const result = await Jobs.find().toArray();
       res.send(result);
     });
     // ! create jwt token
