@@ -12,7 +12,7 @@ app.use(cors());
 app.get("/", (req, res) => {
   res.send("Welcome to job portal");
 });
-
+app.use('/uploads',express.static('uploads'))
 const VerifyJwt = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
@@ -58,10 +58,34 @@ async function run() {
     const CompanyProfile = client.db("Job-Portal").collection("CompanyProfile");
     const Jobs = client.db("Job-Portal").collection("Jobs");
     const markJob = client.db("Job-Portal").collection("markJob");
+    const AppliedJob = client.db("Job-Portal").collection("AppliedJob");
+    
     const CandidateProfile = client
       .db("Job-Portal")
       .collection("CandidateProfile");
-    // ! verify Employer
+   
+    // ! multer ------------------------------
+    const storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, './uploads')
+      },
+      filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now()
+        cb(null, uniqueSuffix+file.originalname)
+      }
+    })
+    
+    const upload = multer({ storage: storage })
+    // ! upload pdf
+    app.post('/uploadFile/:email',upload.single('pdf'),VerifyJwt,async(req,res)=>{
+      const candidateEmail=req.params.email
+     const {jobId,companyEmail,}=req.body
+     const pdf=req.file.filename
+      const data={jobId,pdf,companyEmail,candidateEmail}
+      const result=await AppliedJob.insertOne(data)
+      res.send(result)
+    })
+    // ! Verify Employer
     const VerifyEmployer = async (req, res, next) => {
       const email = req.decode.email;
 
@@ -73,6 +97,17 @@ async function run() {
       }
       next();
     };
+    // ! increment applied number when any one applied in a job
+    app.patch(`/addApplied/:id`,async(req,res)=>{
+      const id=req.params.id 
+      const query={_id:new ObjectId(id)}
+      const updateDov={
+        $inc: {
+          applied: 1
+        }
+      }
+      const result=await Jobs.updateOne(query,updateDov)
+    })
     // ! get user
     app.get("/getUser/:email", VerifyJwt, async (req, res) => {
       const email = req.params.email;
@@ -103,6 +138,7 @@ async function run() {
       const result = await Jobs.insertOne(data);
       res.send(result);
     });
+    // ! Book mark a job
     app.post('/markJob',async(req,res)=>{
       const data=req.body 
       const result=await markJob.insertOne(data) 
@@ -115,6 +151,7 @@ async function run() {
       const result=await markJob.find(query).toArray()
       res.send(result)
     })
+    // ! get a single job
     app.get(`/getSingleJob/:id`,VerifyJwt,async(req,res)=>{
       const id=req.params.id 
       const query={_id:new ObjectId(id)}
