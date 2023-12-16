@@ -83,9 +83,46 @@ async function run() {
       VerifyJwt,
       async (req, res) => {
         const candidateEmail = req.params.email;
-        const { jobId, companyEmail } = req.body;
+        const {
+          applyDate,
+          companyEmail,
+          careerLevel,
+          company,
+          jobId,
+          companyImg,
+          jobDescription,
+          expareanice,
+          postDate,
+          position,
+          offeredSalary,
+          deadline,
+          country,
+          jobType,
+          jobsTitle,
+        } = req.body;
         const pdf = req.file.filename;
-        const data = { jobId, pdf, companyEmail, candidateEmail };
+        const data = {
+          applyDate,
+          companyEmail,
+          pdf,
+          careerLevel,
+          company,
+          companyImg,
+          jobDescription,
+          expareanice,
+          postDate,
+          position,
+          offeredSalary,
+          deadline,
+          country,
+          jobType,
+          jobsTitle,
+          jobId,
+          companyEmail,
+          candidateEmail,
+          status: "pending",
+          applyDate,
+        };
         const result = await AppliedJob.insertOne(data);
         res.send(result);
       }
@@ -102,6 +139,13 @@ async function run() {
       }
       next();
     };
+    // ! get user applied job
+    app.get(`/userAppliedJob/:email`, VerifyJwt, async (req, res) => {
+      const email = req.params.email;
+      const query = { candidateEmail: email };
+      const result = await AppliedJob.find(query).toArray();
+      res.send(result);
+    });
     // ! increment applied number when any one applied in a job
     app.patch(`/addApplied/:id`, async (req, res) => {
       const id = req.params.id;
@@ -161,7 +205,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await markJob.findOne(query);
-      res.send(result)
+      res.send(result);
     });
     // ! post new job
     app.post("/postJob", VerifyJwt, VerifyEmployer, async (req, res) => {
