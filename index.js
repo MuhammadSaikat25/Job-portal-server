@@ -12,7 +12,7 @@ app.use(cors());
 app.get("/", (req, res) => {
   res.send("Welcome to job portal");
 });
-app.use('/uploads',express.static('uploads'))
+app.use("/uploads", express.static("uploads"));
 const VerifyJwt = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
@@ -59,55 +59,60 @@ async function run() {
     const Jobs = client.db("Job-Portal").collection("Jobs");
     const markJob = client.db("Job-Portal").collection("markJob");
     const AppliedJob = client.db("Job-Portal").collection("AppliedJob");
-    
+
     const CandidateProfile = client
       .db("Job-Portal")
       .collection("CandidateProfile");
-   
+
     // ! multer ------------------------------
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
-        cb(null, './uploads')
+        cb(null, "./uploads");
       },
       filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now()
-        cb(null, uniqueSuffix+file.originalname)
-      }
-    })
-    
-    const upload = multer({ storage: storage })
+        const uniqueSuffix = Date.now();
+        cb(null, uniqueSuffix + file.originalname);
+      },
+    });
+
+    const upload = multer({ storage: storage });
     // ! upload pdf
-    app.post('/uploadFile/:email',upload.single('pdf'),VerifyJwt,async(req,res)=>{
-      const candidateEmail=req.params.email
-     const {jobId,companyEmail,}=req.body
-     const pdf=req.file.filename
-      const data={jobId,pdf,companyEmail,candidateEmail}
-      const result=await AppliedJob.insertOne(data)
-      res.send(result)
-    })
+    app.post(
+      "/uploadFile/:email",
+      upload.single("pdf"),
+      VerifyJwt,
+      async (req, res) => {
+        const candidateEmail = req.params.email;
+        const { jobId, companyEmail } = req.body;
+        const pdf = req.file.filename;
+        const data = { jobId, pdf, companyEmail, candidateEmail };
+        const result = await AppliedJob.insertOne(data);
+        res.send(result);
+      }
+    );
     // ! Verify Employer
     const VerifyEmployer = async (req, res, next) => {
       const email = req.decode.email;
 
       const query = { email: email };
       const findUser = await Users.findOne(query);
-      const Candidate = findUser.role === "Employer";
-      if (!Candidate) {
+      const Employer = findUser.role === "Employer";
+      if (!Employer) {
         return res.status(401).send("forbidden access");
       }
       next();
     };
     // ! increment applied number when any one applied in a job
-    app.patch(`/addApplied/:id`,async(req,res)=>{
-      const id=req.params.id 
-      const query={_id:new ObjectId(id)}
-      const updateDov={
+    app.patch(`/addApplied/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDov = {
         $inc: {
-          applied: 1
-        }
-      }
-      const result=await Jobs.updateOne(query,updateDov)
-    })
+          applied: 1,
+        },
+      };
+      const result = await Jobs.updateOne(query, updateDov);
+    });
     // ! get user
     app.get("/getUser/:email", VerifyJwt, async (req, res) => {
       const email = req.params.email;
@@ -115,6 +120,18 @@ async function run() {
       const result = await Users.findOne(query);
       res.send(result);
     });
+    //  ! Employer's posted job
+    app.get(
+      `/Employers/:email`,
+      VerifyJwt,
+      VerifyEmployer,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { companyEmail: email };
+        const result = await Jobs.find(query).toArray();
+        res.send(result);
+      }
+    );
     // ! Post User Into db
     app.post("/postUser", async (req, res) => {
       const data = await req.body;
@@ -132,6 +149,20 @@ async function run() {
         res.send(result);
       }
     );
+    // ! delete candidate short listed Job
+    app.delete(`/deletedSortListJob/:id`, VerifyJwt, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await markJob.deleteOne(query);
+      res.send(result);
+    });
+    // ! get Single Mark Job
+    app.get(`/getSingleMarkJob/:id`, VerifyJwt, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await markJob.findOne(query);
+      res.send(result)
+    });
     // ! post new job
     app.post("/postJob", VerifyJwt, VerifyEmployer, async (req, res) => {
       const data = req.body;
@@ -139,25 +170,25 @@ async function run() {
       res.send(result);
     });
     // ! Book mark a job
-    app.post('/markJob',async(req,res)=>{
-      const data=req.body 
-      const result=await markJob.insertOne(data) 
-      res.send(result)
-    })
+    app.post("/markJob", async (req, res) => {
+      const data = req.body;
+      const result = await markJob.insertOne(data);
+      res.send(result);
+    });
     // ! get candidate's mark job
-    app.get(`/markJob/:email`,VerifyJwt,async(req,res)=>{
-      const email=req.params.email 
-      const query={candidate:email}
-      const result=await markJob.find(query).toArray()
-      res.send(result)
-    })
+    app.get(`/markJob/:email`, VerifyJwt, async (req, res) => {
+      const email = req.params.email;
+      const query = { candidate: email };
+      const result = await markJob.find(query).toArray();
+      res.send(result);
+    });
     // ! get a single job
-    app.get(`/getSingleJob/:id`,VerifyJwt,async(req,res)=>{
-      const id=req.params.id 
-      const query={_id:new ObjectId(id)}
-      const result=await Jobs.findOne(query)
-      res.send(result)
-    })
+    app.get(`/getSingleJob/:id`, VerifyJwt, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await Jobs.findOne(query);
+      res.send(result);
+    });
     // ! post Employer Profile
     app.post(`/PostCandidateProfile`, VerifyJwt, async (req, res) => {
       const data = req.body;
