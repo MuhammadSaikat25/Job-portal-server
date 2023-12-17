@@ -59,10 +59,8 @@ async function run() {
     const Jobs = client.db("Job-Portal").collection("Jobs");
     const markJob = client.db("Job-Portal").collection("markJob");
     const AppliedJob = client.db("Job-Portal").collection("AppliedJob");
-
-    const CandidateProfile = client
-      .db("Job-Portal")
-      .collection("CandidateProfile");
+    const CandidateProfile = client.db("Job-Portal").collection("CandidateProfile");
+    
 
     // ! multer ------------------------------
     const storage = multer.diskStorage({
@@ -84,9 +82,12 @@ async function run() {
       async (req, res) => {
         const candidateEmail = req.params.email;
         const {
+          candidateImg,
           applyDate,
+          candidateJob,
           companyEmail,
           careerLevel,
+          candidateName,
           company,
           jobId,
           companyImg,
@@ -102,7 +103,10 @@ async function run() {
         } = req.body;
         const pdf = req.file.filename;
         const data = {
+          candidateImg,
+          candidateJob,
           applyDate,
+          candidateName,
           companyEmail,
           pdf,
           careerLevel,
@@ -127,6 +131,7 @@ async function run() {
         res.send(result);
       }
     );
+
     // ! Verify Employer
     const VerifyEmployer = async (req, res, next) => {
       const email = req.decode.email;
@@ -164,6 +169,32 @@ async function run() {
       const result = await Users.findOne(query);
       res.send(result);
     });
+    // ! get employer's all Applicant
+    app.get(
+      "/getAllApplicant/:email",
+      VerifyJwt,
+      VerifyEmployer,
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { companyEmail: email };
+        const ApprovedQuery={companyEmail: email ,status:"Approved"}
+        const RejectQuery={companyEmail: email ,status:"Reject"}
+        const ApproveResult=await AppliedJob.find(ApprovedQuery).toArray()
+        const RejectResult=await AppliedJob.find(RejectQuery).toArray()
+        const result = await AppliedJob.find(query).toArray();
+        const data={
+          AllData:result,ApproveResult,RejectResult
+        }
+        res.send(data);
+      }
+    );
+    // ! get login user
+    app.get("/loginUser/:email", VerifyJwt, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await CandidateProfile.findOne(query);
+      res.send(result);
+    });
     //  ! Employer's posted job
     app.get(
       `/Employers/:email`,
@@ -193,6 +224,19 @@ async function run() {
         res.send(result);
       }
     );
+    // ! Reject and Approved Applicant 
+    app.patch(`/approvedApplicant/:id`,VerifyJwt,VerifyEmployer,async(req,res)=>{
+      const id=req.params.id 
+      const data=req.body
+      const query={_id:new ObjectId(id)}
+      const updateDoc={
+        $set:{
+          status:data.status
+        }
+      }
+      const result=await AppliedJob.updateOne(query,updateDoc)
+      res.send(result)
+    })
     // ! delete candidate short listed Job
     app.delete(`/deletedSortListJob/:id`, VerifyJwt, async (req, res) => {
       const id = req.params.id;
