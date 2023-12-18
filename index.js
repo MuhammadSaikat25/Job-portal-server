@@ -224,6 +224,14 @@ async function run() {
         res.send(result);
       }
     );
+    // ! get all job length for pagination
+    app.get(`/getJobNumber`,async(req,res)=>{
+      const data=await Jobs.find().toArray()
+      const result={
+        job:data.length
+      }
+      res.send(result)
+    })
     // ! Reject and Approved Applicant 
     app.patch(`/approvedApplicant/:id`,VerifyJwt,VerifyEmployer,async(req,res)=>{
       const id=req.params.id 
@@ -297,7 +305,10 @@ async function run() {
     );
     // ! get all jobs
     app.get(`/allJobs`, async (req, res) => {
-      const result = await Jobs.find().toArray();
+      const page = Number(req.query.page) || 1
+      const limit = Number(req.query.limit) || 5
+      const skip = (page - 1) * limit
+      const result = await Jobs.find().skip(skip).limit(limit).toArray()
       res.send(result);
     });
     // ! create jwt token
