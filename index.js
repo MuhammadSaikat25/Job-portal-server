@@ -259,6 +259,13 @@ async function run() {
       const result = await markJob.findOne(query);
       res.send(result);
     });
+    // ! get Employer
+    app.get(`/getEmployer/:email`,async(req,res)=>{
+      const email=req.params.email
+      const query={email}
+      const result= await Users.findOne(query)
+      res.send(result)
+    })
     // ! post new job
     app.post("/postJob", VerifyJwt, VerifyEmployer, async (req, res) => {
       const data = req.body;
