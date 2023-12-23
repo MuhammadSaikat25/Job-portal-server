@@ -252,6 +252,13 @@ async function run() {
       const result = await markJob.deleteOne(query);
       res.send(result);
     });
+    // ! delete employer's job
+    app.delete('/deleteJob/:id',VerifyJwt,VerifyEmployer,async(req,res)=>{
+      const id=req.params.id 
+      const query={_id:new ObjectId(id)}
+      const result=await Jobs.deleteOne(query)
+      res.send(result)
+    })
     // ! get Single Mark Job
     app.get(`/getSingleMarkJob/:id`, VerifyJwt, async (req, res) => {
       const id = req.params.id;
