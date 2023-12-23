@@ -163,7 +163,7 @@ async function run() {
       const result = await Jobs.updateOne(query, updateDov);
     });
     // ! get user
-    app.get("/getUser/:email", VerifyJwt, async (req, res) => {
+    app.get("/getUser/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const result = await Users.findOne(query);
