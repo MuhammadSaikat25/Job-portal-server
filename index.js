@@ -318,6 +318,19 @@ async function run() {
       const result = await Jobs.find().skip(skip).limit(limit).toArray()
       res.send(result);
     });
+    //! update job data
+    app.put(`/updateJob/:id`,VerifyJwt,VerifyEmployer,async(req,res)=>{
+      const data=req.body
+      const id=req.params.id
+      const query={_id:new ObjectId(id)}
+      const updateDoc={
+        $set:{
+          ...data
+        }
+      }
+      const result=await Jobs.updateOne(query,updateDoc)
+      res.send(result)
+    })
     // ! create jwt token
     app.post("/jwt", async (req, res) => {
       const user = req.body;
