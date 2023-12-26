@@ -4,15 +4,18 @@ const app = express();
 const cors = require("cors");
 require("dotenv").config();
 var jwt = require("jsonwebtoken");
-const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
+
 const port = process.env.PORT || 5000;
 app.use(express.json());
+const corsConfig = {
+  origin: "*",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+};
+app.use(cors(corsConfig));
+app.options("", cors(corsConfig));
 app.use(cors());
-app.get("/", (req, res) => {
-  res.send("Welcome to job portal");
-});
-app.use("/uploads", express.static("uploads"));
+
 const VerifyJwt = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
@@ -34,7 +37,9 @@ const VerifyJwt = (req, res, next) => {
 };
 
 //  ! -------------- connect with mongodb-----------------
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2lihpnz.mongodb.net/?retryWrites=true&w=majority`;
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.2lihpnz.mongodb.net/?retryWrites=true&w=majority`;
+const uri =
+  "mongodb+srv://smsaikat000:fDSSKKSnUythMOaU@cluster0.2lihpnz.mongodb.net/?retryWrites=true&w=majority";
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -50,88 +55,19 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+
     const Users = client.db("Job-Portal").collection("Users");
     const CompanyProfile = client.db("Job-Portal").collection("CompanyProfile");
     const Jobs = client.db("Job-Portal").collection("Jobs");
     const markJob = client.db("Job-Portal").collection("markJob");
     const AppliedJob = client.db("Job-Portal").collection("AppliedJob");
-    const CandidateProfile = client.db("Job-Portal").collection("CandidateProfile");
-    
-
-    // ! multer ------------------------------
-    const storage = multer.diskStorage({
-      destination: function (req, file, cb) {
-        cb(null, "./uploads");
-      },
-      filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now();
-        cb(null, uniqueSuffix + file.originalname);
-      },
-    });
-
-    const upload = multer({ storage: storage });
-    // ! upload pdf
-    app.post(
-      "/uploadFile/:email",
-      upload.single("pdf"),
-      VerifyJwt,
-      async (req, res) => {
-        const candidateEmail = req.params.email;
-        const {
-          candidateImg,
-          applyDate,
-          candidateJob,
-          companyEmail,
-          careerLevel,
-          candidateName,
-          company,
-          jobId,
-          companyImg,
-          jobDescription,
-          expareanice,
-          postDate,
-          position,
-          offeredSalary,
-          deadline,
-          country,
-          jobType,
-          jobsTitle,
-        } = req.body;
-        const pdf = req.file.filename;
-        const data = {
-          candidateImg,
-          candidateJob,
-          applyDate,
-          candidateName,
-          companyEmail,
-          pdf,
-          careerLevel,
-          company,
-          companyImg,
-          jobDescription,
-          expareanice,
-          postDate,
-          position,
-          offeredSalary,
-          deadline,
-          country,
-          jobType,
-          jobsTitle,
-          jobId,
-          companyEmail,
-          candidateEmail,
-          status: "pending",
-          applyDate,
-        };
-        const result = await AppliedJob.insertOne(data);
-        res.send(result);
-      }
-    );
-
+    const CandidateProfile = client
+      .db("Job-Portal")
+      .collection("CandidateProfile");
     // ! Verify Employer
     const VerifyEmployer = async (req, res, next) => {
       const email = req.decode.email;
@@ -151,6 +87,12 @@ async function run() {
       const result = await AppliedJob.find(query).toArray();
       res.send(result);
     });
+    // ! apply to job
+    app.post('/applyJob',VerifyJwt, async(req,res)=>{
+      const data=req.body
+      const result=await AppliedJob.insertOne(data)
+      res.send(result)
+    })
     // ! increment applied number when any one applied in a job
     app.patch(`/addApplied/:id`, async (req, res) => {
       const id = req.params.id;
@@ -177,14 +119,16 @@ async function run() {
       async (req, res) => {
         const email = req.params.email;
         const query = { companyEmail: email };
-        const ApprovedQuery={companyEmail: email ,status:"Approved"}
-        const RejectQuery={companyEmail: email ,status:"Reject"}
-        const ApproveResult=await AppliedJob.find(ApprovedQuery).toArray()
-        const RejectResult=await AppliedJob.find(RejectQuery).toArray()
+        const ApprovedQuery = { companyEmail: email, status: "Approved" };
+        const RejectQuery = { companyEmail: email, status: "Reject" };
+        const ApproveResult = await AppliedJob.find(ApprovedQuery).toArray();
+        const RejectResult = await AppliedJob.find(RejectQuery).toArray();
         const result = await AppliedJob.find(query).toArray();
-        const data={
-          AllData:result,ApproveResult,RejectResult
-        }
+        const data = {
+          AllData: result,
+          ApproveResult,
+          RejectResult,
+        };
         res.send(data);
       }
     );
@@ -193,6 +137,7 @@ async function run() {
       const email = req.params.email;
       const query = { email };
       const result = await CandidateProfile.findOne(query);
+      console.log(result)
       res.send(result);
     });
     //  ! Employer's posted job
@@ -225,26 +170,31 @@ async function run() {
       }
     );
     // ! get all job length for pagination
-    app.get(`/getJobNumber`,async(req,res)=>{
-      const data=await Jobs.find().toArray()
-      const result={
-        job:data.length
+    app.get(`/getJobNumber`, async (req, res) => {
+      const data = await Jobs.find().toArray();
+      const result = {
+        job: data.length,
+      };
+      res.send(result);
+    });
+    // ! Reject and Approved Applicant
+    app.patch(
+      `/approvedApplicant/:id`,
+      VerifyJwt,
+      VerifyEmployer,
+      async (req, res) => {
+        const id = req.params.id;
+        const data = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            status: data.status,
+          },
+        };
+        const result = await AppliedJob.updateOne(query, updateDoc);
+        res.send(result);
       }
-      res.send(result)
-    })
-    // ! Reject and Approved Applicant 
-    app.patch(`/approvedApplicant/:id`,VerifyJwt,VerifyEmployer,async(req,res)=>{
-      const id=req.params.id 
-      const data=req.body
-      const query={_id:new ObjectId(id)}
-      const updateDoc={
-        $set:{
-          status:data.status
-        }
-      }
-      const result=await AppliedJob.updateOne(query,updateDoc)
-      res.send(result)
-    })
+    );
     // ! delete candidate short listed Job
     app.delete(`/deletedSortListJob/:id`, VerifyJwt, async (req, res) => {
       const id = req.params.id;
@@ -253,12 +203,17 @@ async function run() {
       res.send(result);
     });
     // ! delete employer's job
-    app.delete('/deleteJob/:id',VerifyJwt,VerifyEmployer,async(req,res)=>{
-      const id=req.params.id 
-      const query={_id:new ObjectId(id)}
-      const result=await Jobs.deleteOne(query)
-      res.send(result)
-    })
+    app.delete(
+      "/deleteJob/:id",
+      VerifyJwt,
+      VerifyEmployer,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await Jobs.deleteOne(query);
+        res.send(result);
+      }
+    );
     // ! get Single Mark Job
     app.get(`/getSingleMarkJob/:id`, VerifyJwt, async (req, res) => {
       const id = req.params.id;
@@ -267,12 +222,12 @@ async function run() {
       res.send(result);
     });
     // ! get Employer
-    app.get(`/getEmployer/:email`,async(req,res)=>{
-      const email=req.params.email
-      const query={email}
-      const result= await Users.findOne(query)
-      res.send(result)
-    })
+    app.get(`/getEmployer/:email`, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await Users.findOne(query);
+      res.send(result);
+    });
     // ! post new job
     app.post("/postJob", VerifyJwt, VerifyEmployer, async (req, res) => {
       const data = req.body;
@@ -319,29 +274,33 @@ async function run() {
     );
     // ! get all jobs
     app.get(`/allJobs`, async (req, res) => {
-      const page = Number(req.query.page) || 1
-      const limit = Number(req.query.limit) || 5
-      const skip = (page - 1) * limit
-      const result = await Jobs.find().skip(skip).limit(limit).toArray()
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 5;
+      const skip = (page - 1) * limit;
+      const result = await Jobs.find().skip(skip).limit(limit).toArray();
       res.send(result);
     });
     //! update job data
-    app.put(`/updateJob/:id`,VerifyJwt,VerifyEmployer,async(req,res)=>{
-      const data=req.body
-      const id=req.params.id
-      const query={_id:new ObjectId(id)}
-      const updateDoc={
-        $set:{
-          ...data
-        }
-      }
-      const result=await Jobs.updateOne(query,updateDoc)
-      res.send(result)
-    })
+    app.put(`/updateJob/:id`, VerifyJwt, VerifyEmployer, async (req, res) => {
+      const data = req.body;
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          ...data,
+        },
+      };
+      const result = await Jobs.updateOne(query, updateDoc);
+      res.send(result);
+    });
     // ! create jwt token
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT, { expiresIn: "1d" });
+      const token = jwt.sign(
+        user,
+        "eywqioye1u2121331y3fuyh1f31ujh2g3h1f3gu12f3ui1f3y12f3ui122f3yui1vhhjfdshafdsyt2fey312f3y12f3yu12fg3yu1fvshqcvsya",
+        { expiresIn: "1d" }
+      );
       res.send({ token });
     });
   } finally {
@@ -352,7 +311,7 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", async (req, res) => {
-  res.send("welcome");
+  res.send("welcome to job portal");
 });
 
 app.listen(port);
